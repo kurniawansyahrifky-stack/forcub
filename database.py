@@ -8,4 +8,5 @@ mongo = AsyncIOMotorClient(
 db = mongo["menfess"]
 users_db = db["users"]
 premium_db = db["premium"]
-reply_db = db["reply"]
+anonymous_db = db["anonymous_rooms"]
+request_db = db["anonymous_requests"]

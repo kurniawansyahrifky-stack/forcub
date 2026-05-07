@@ -3,6 +3,7 @@ from decouple import config
 from __main__ import bot
 import os
 from database import users_db
+
 # ========================
 # CONFIG
 # ========================
@@ -27,9 +28,11 @@ waiting_payment = set()
 # ========================
 
 def get_start_buttons():
+
     buttons = []
 
     if CHANNEL_1:
+
         buttons.append(
             [
                 Button.url(
@@ -40,6 +43,7 @@ def get_start_buttons():
         )
 
     if CHANNEL_2:
+
         buttons.append(
             [
                 Button.url(
@@ -50,6 +54,7 @@ def get_start_buttons():
         )
 
     if CHANNEL_3:
+
         buttons.append(
             [
                 Button.url(
@@ -61,8 +66,24 @@ def get_start_buttons():
 
     buttons.append(
         [
-            Button.inline("💎 PREMIUM", data=b"premium"),
-            Button.inline("💌 MENFESS", data=b"menfess")
+            Button.inline(
+                "💌 MENFESS",
+                data=b"menfess"
+            ),
+
+            Button.inline(
+                "📨 ANONYMOUS",
+                data=b"anonymous_help"
+            )
+        ]
+    )
+
+    buttons.append(
+        [
+            Button.inline(
+                "💎 PREMIUM",
+                data=b"premium"
+            )
         ]
     )
 
@@ -73,7 +94,9 @@ def get_start_buttons():
 # ========================
 
 def start_caption():
+
     return (
+
         "╭━〔 ✦ 𝗠𝗘𝗡𝗙𝗘𝗦𝗦 𝗕𝗢𝗧 ✦ 〕━╮\n"
         "┃\n"
         "┃  𝐒𝐞𝐥𝐚𝐦𝐚𝐭 𝐃𝐚𝐭𝐚𝐧𝐠\n"
@@ -90,6 +113,7 @@ def start_caption():
         "┃  fitur lebih fast & exclusive\n"
         "┃\n"
         "╰━━━━━━━━━━━━━━━━━━╯"
+
     )
 
 # ========================
@@ -121,6 +145,49 @@ async def start_handler(event):
     )
 
 # ========================
+# ANONYMOUS HELP
+# ========================
+
+@bot.on(events.CallbackQuery(data=b"anonymous_help"))
+async def anonymous_help(event):
+
+    text = (
+
+        "╭━〔 📨 ANONYMOUS REPLY 〕━╮\n"
+        "┃\n"
+        "┃  cara balas menfess:\n"
+        "┃\n"
+        "┃  1. cari kode reply\n"
+        "┃     di postingan channel\n"
+        "┃\n"
+        "┃  2. kirim command:\n"
+        "┃     /reply KODE\n"
+        "┃\n"
+        "┃  contoh:\n"
+        "┃  /reply ABC12345\n"
+        "┃\n"
+        "┃  3. lalu kirim pesan\n"
+        "┃  anonymous kamu ✨\n"
+        "┃\n"
+        "╰━━━━━━━━━━━━━━━━━━╯"
+
+    )
+
+    buttons = [
+        [
+            Button.inline(
+                "⬅️ KEMBALI",
+                data=b"back_start"
+            )
+        ]
+    ]
+
+    await event.edit(
+        text,
+        buttons=buttons
+    )
+
+# ========================
 # PREMIUM MENU
 # ========================
 
@@ -128,6 +195,7 @@ async def start_handler(event):
 async def premium_menu(event):
 
     text = (
+
         "╭━〔 💎 𝗣𝗥𝗘𝗠𝗜𝗨𝗠 𝗣𝗔𝗖𝗞𝗔𝗚𝗘 💎 〕━╮\n"
         "┃\n"
         "┃  ✦ Lite   → 3K\n"
@@ -138,19 +206,37 @@ async def premium_menu(event):
         "┃  untuk melanjutkan pembayaran ✨\n"
         "┃\n"
         "╰━━━━━━━━━━━━━━━━━━━━╯"
+
     )
 
     buttons = [
+
         [
-            Button.inline("💠 LITE 3K", data=b"lite"),
-            Button.inline("💠 BASIC 5K", data=b"basic")
+            Button.inline(
+                "💠 LITE 3K",
+                data=b"lite"
+            ),
+
+            Button.inline(
+                "💠 BASIC 5K",
+                data=b"basic"
+            )
         ],
+
         [
-            Button.inline("👑 PRO 10K", data=b"pro")
+            Button.inline(
+                "👑 PRO 10K",
+                data=b"pro"
+            )
         ],
+
         [
-            Button.inline("⬅️ KEMBALI", data=b"back_start")
+            Button.inline(
+                "⬅️ KEMBALI",
+                data=b"back_start"
+            )
         ]
+
     ]
 
     await event.edit(
@@ -194,10 +280,10 @@ async def payment_handler(event):
     else:
         harga = "10K"
 
-    # MASUK MODE PAYMENT
     waiting_payment.add(event.sender_id)
 
     caption = (
+
         f"╭━〔 💳 𝗣𝗔𝗬𝗠𝗘𝗡𝗧 {paket.upper()} 〕━╮\n"
         "┃\n"
         f"┃  Paket : {paket.upper()}\n"
@@ -211,11 +297,15 @@ async def payment_handler(event):
         "┃  ke bot ini\n"
         "┃\n"
         "╰━━━━━━━━━━━━━━━━━━╯"
+
     )
 
     buttons = [
         [
-            Button.inline("⬅️ KEMBALI", data=b"premium")
+            Button.inline(
+                "⬅️ KEMBALI",
+                data=b"premium"
+            )
         ]
     ]
 
@@ -233,29 +323,27 @@ async def payment_handler(event):
 @bot.on(events.NewMessage(incoming=True))
 async def bukti_transfer(event):
 
-    # BUKAN USER PAYMENT
     if event.sender_id not in waiting_payment:
         return
 
-    # SKIP COMMAND
     if event.text and event.text.startswith("/"):
         return
 
-    # HANYA FOTO / FILE
     if not (event.photo or event.document):
         return
 
     sender = await event.get_sender()
 
     caption = (
+
         "💎 𝗣𝗘𝗠𝗕𝗘𝗟𝗜𝗔𝗡 𝗣𝗥𝗘𝗠𝗜𝗨𝗠\n\n"
         f"👤 User : {sender.first_name}\n"
         f"🆔 ID : `{sender.id}`\n"
         f"📩 Username : @{sender.username if sender.username else '-'}\n\n"
         "silahkan cek bukti transfer."
+
     )
 
-    # FORWARD KE ADMIN
     await bot.forward_messages(
         ADMIN_GROUP,
         event.message
@@ -266,7 +354,6 @@ async def bukti_transfer(event):
         caption
     )
 
-    # KELUAR MODE PAYMENT
     waiting_payment.discard(event.sender_id)
 
     await event.reply(

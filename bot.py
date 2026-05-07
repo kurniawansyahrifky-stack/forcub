@@ -4,11 +4,16 @@ import asyncio
 import os
 import sys
 import gc
+import uvloop
 
-from datetime import datetime
+asyncio.set_event_loop_policy(
+    uvloop.EventLoopPolicy()
+)
 
+from telethon import TelegramClient
+from telethon.sessions import StringSession
 from decouple import config
-
+from datetime import datetime
 from telethon import (
     TelegramClient,
     events,
@@ -29,16 +34,12 @@ from reset_daily import reset_limits
 # =========================
 # LOGGING
 # =========================
-
 logging.basicConfig(
     level=logging.INFO,
     format="[%(levelname)s] %(message)s"
 )
-
 log = logging.getLogger("MENFESS")
-
 log.info("STARTING BOT...")
-
 
 # =========================
 # CONFIG
@@ -446,7 +447,7 @@ import modules.start
 import modules.menfess
 import modules.owner
 import modules.upload
-
+import modules.anonymous
 
 # =========================
 # TASKS
@@ -469,6 +470,25 @@ log.info(
     f"BOT STARTED AS @{bot_self.username}"
 )
 
+def handle_exception(loop, context):
+
+    error = context.get("exception")
+    msg = f"{context}"
+
+    print(msg)
+
+    try:
+
+        loop.create_task(
+            send_error(msg)
+        )
+
+    except:
+        pass
+
+asyncio.get_event_loop().set_exception_handler(
+    handle_exception
+)
 
 # =========================
 # RUN LOOP
@@ -486,9 +506,22 @@ while True:
             f"BOT CRASHED: {e}"
         )
 
+        try:
+
+            asyncio.run(
+                send_error(
+                    f"⚠️ BOT CRASHED\n\n{e}"
+                )
+            )
+
+        except:
+            pass
+
         log.info(
-            "RESTARTING BOT..."
+            "RESTARTING BOT IN 5 SECONDS..."
         )
+
+        time.sleep(5)
 
         try:
 
@@ -504,3 +537,5 @@ while True:
             log.error(
                 f"RESTART FAILED: {err}"
             )
+
+            time.sleep(10)
