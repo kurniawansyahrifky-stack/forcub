@@ -6,5 +6,5 @@ mongo = AsyncIOMotorClient(
 )
 
 db = mongo["menfess"]
-
+users_db = db["users"]
 premium_db = db["premium"]

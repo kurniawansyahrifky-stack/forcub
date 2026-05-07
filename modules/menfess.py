@@ -1,9 +1,3 @@
-import asyncio
-import re
-import time
-
-from datetime import datetime, timedelta
-
 from telethon import events, Button
 from telethon.utils import get_display_name
 
@@ -11,51 +5,14 @@ from database import premium_db
 from config import ADMIN_GROUP, POST_CHANNEL
 from __main__ import bot, is_owner
 
+import re
+import time
+
+from datetime import datetime, timedelta
+
 print("MENFESS MODULE LOADED")
 
-# =========================
-# SYSTEM
-# =========================
-
 cooldown = {}
-
-# LIMIT MEDIA UPLOAD
-media_semaphore = asyncio.Semaphore(3)
-
-# LIMIT CALLBACK
-callback_semaphore = asyncio.Semaphore(5)
-
-# CLEANUP MEMORY
-async def cleanup_cooldown():
-
-    while True:
-
-        try:
-
-            now = time.time()
-
-            delete = []
-
-            for uid, tm in cooldown.items():
-
-                if now - tm > 120:
-                    delete.append(uid)
-
-            for uid in delete:
-                cooldown.pop(uid, None)
-
-        except Exception as e:
-
-            print(
-                f"CLEANUP ERROR : {e}"
-            )
-
-        await asyncio.sleep(60)
-
-
-bot.loop.create_task(
-    cleanup_cooldown()
-)
 
 # =========================
 # GET PREMIUM
@@ -111,15 +68,13 @@ async def resolve_user(target):
 
     except Exception as e:
 
-        print(
-            f"RESOLVE ERROR : {e}"
-        )
+        print(f"RESOLVE ERROR : {e}")
 
         return None
 
 
 # =========================
-# FORMAT TIME
+# FORMAT EXPIRED
 # =========================
 
 def format_expired(timestamp):
@@ -232,7 +187,7 @@ async def add_premium(
             f"┃ user : {user.first_name}\n"
             f"┃ tier : {tier}\n"
             f"┃ limit : {limit}\n"
-            "┃ duration : 30 hari\n"
+            f"┃ expired : 30 hari\n"
             "╰──────────────────────╯"
         )
 
@@ -245,7 +200,7 @@ async def lite_cmd(event):
     await add_premium(
         event,
         "lite",
-        10
+        5
     )
 
 
@@ -255,7 +210,7 @@ async def basic_cmd(event):
     await add_premium(
         event,
         "basic",
-        30
+        15
     )
 
 
@@ -329,6 +284,10 @@ async def menfess_handler(event):
 
         sender = await event.get_sender()
 
+        # SKIP BOT
+        if getattr(sender, "bot", False):
+            return
+
         premium = await get_premium(
             sender.id
         )
@@ -342,26 +301,26 @@ async def menfess_handler(event):
         # PREMIUM
         if premium:
 
-            cd = 3
+            if sender.id in cooldown:
+
+                delay = now - cooldown[sender.id]
+
+                if delay < 5:
+                    return
+
+            cooldown[sender.id] = now
 
         # FREE USER
         else:
 
-            cd = 20
+            if sender.id in cooldown:
 
-        last = cooldown.get(sender.id)
+                delay = now - cooldown[sender.id]
 
-        if last:
+                if delay < 15:
+                    return
 
-            if now - last < cd:
-                return
-
-        cooldown[sender.id] = now
-
-        mention = (
-            f"[{get_display_name(sender)}]"
-            f"(tg://user?id={sender.id})"
-        )
+            cooldown[sender.id] = now
 
         # =========================
         # PREMIUM AUTO POST
@@ -382,19 +341,15 @@ async def menfess_handler(event):
                 # MEDIA
                 if event.media:
 
-                    async with media_semaphore:
+                    await bot.send_file(
 
-                        await bot.send_file(
+                        POST_CHANNEL,
 
-                            POST_CHANNEL,
+                        event.media,
 
-                            event.media,
+                        caption=text if text else None
 
-                            caption=text if text else None,
-
-                            supports_streaming=True
-
-                        )
+                    )
 
                 # TEXT
                 else:
@@ -404,7 +359,7 @@ async def menfess_handler(event):
                         text
                     )
 
-                # LIMIT
+                # KURANG LIMIT
                 if premium["tier"] != "pro":
 
                     await premium_db.update_one(
@@ -436,53 +391,49 @@ async def menfess_handler(event):
                 )
 
         # =========================
-        # FREE USER APPROVE
+        # FREE USER NEED APPROVE
         # =========================
 
-        caption = (
-
-            "╭──〔 📥 MENFESS MASUK 〕──╮\n"
-            f"FROM : {mention}\n"
-            f"USER ID : {sender.id}\n"
-            "╰────────────────────╯\n\n"
-            f"{text}"
-
-        )
-
         try:
+
+            admin_caption = (
+
+                "╭──〔 📥 MENFESS MASUK 〕──╮\n"
+                f"FROM : {get_display_name(sender)}\n"
+                f"USER ID : {sender.id}\n"
+                "╰────────────────────╯\n\n"
+                f"{text}"
+
+            )
 
             # MEDIA
             if event.media:
 
-                async with media_semaphore:
+                await bot.send_file(
 
-                    await bot.send_file(
+                    ADMIN_GROUP,
 
-                        ADMIN_GROUP,
+                    event.media,
 
-                        event.media,
+                    caption=admin_caption,
 
-                        caption=caption,
+                    buttons=[
 
-                        supports_streaming=True,
+                        [
+                            Button.inline(
+                                "✅ APPROVE",
+                                data=f"approve_{sender.id}"
+                            ),
 
-                        buttons=[
-
-                            [
-                                Button.inline(
-                                    "✅ APPROVE",
-                                    data=f"approve_{sender.id}"
-                                ),
-
-                                Button.inline(
-                                    "❌ REJECT",
-                                    data=f"reject_{sender.id}"
-                                )
-                            ]
-
+                            Button.inline(
+                                "❌ REJECT",
+                                data=f"reject_{sender.id}"
+                            )
                         ]
 
-                    )
+                    ]
+
+                )
 
             # TEXT
             else:
@@ -491,7 +442,7 @@ async def menfess_handler(event):
 
                     ADMIN_GROUP,
 
-                    caption,
+                    admin_caption,
 
                     buttons=[
 
@@ -524,7 +475,7 @@ async def menfess_handler(event):
     except Exception as e:
 
         print(
-            f"MESSAGE ERROR : {e}"
+            f"MENFESS ERROR : {e}"
         )
 
 
@@ -545,61 +496,63 @@ async def menfess_handler(event):
 )
 async def approve_handler(event):
 
-    async with callback_semaphore:
+    uid = int(
+        event.data_match.group(1).decode()
+    )
 
-        uid = int(
-            event.data_match.group(1).decode()
-        )
+    try:
 
-        try:
+        msg = await event.get_message()
 
-            msg = await event.get_message()
+        raw = msg.raw_text or ""
 
-            # MEDIA
-            if msg.media:
+        # AMBIL ISI MENFESS DOANG
+        if "\n\n" in raw:
 
-                async with media_semaphore:
+            menfess_text = raw.split(
+                "\n\n",
+                1
+            )[1]
 
-                    await bot.send_file(
+        else:
 
-                        POST_CHANNEL,
+            menfess_text = raw
 
-                        msg.media,
+        # MEDIA
+        if msg.media:
 
-                        caption=msg.raw_text,
+            await bot.send_file(
 
-                        supports_streaming=True
+                POST_CHANNEL,
 
-                    )
+                msg.media,
 
-            # TEXT
-            else:
+                caption=menfess_text if menfess_text else None
 
-                text = msg.raw_text
-
-                lines = text.split("\n\n")
-
-                menfess_text = lines[-1]
-
-                await bot.send_message(
-                    POST_CHANNEL,
-                    menfess_text
-                )
-
-            await event.edit(
-                "✅ menfess approved"
             )
+
+        # TEXT
+        else:
 
             await bot.send_message(
-                uid,
-                "✅ menfess kamu berhasil dipost"
+                POST_CHANNEL,
+                menfess_text
             )
 
-        except Exception as e:
+        await event.edit(
+            "✅ menfess approved"
+        )
 
-            print(
-                f"APPROVE ERROR : {e}"
-            )
+        await bot.send_message(
+            uid,
+            "✅ menfess kamu berhasil dipost"
+        )
+
+    except Exception as e:
+
+        print(
+            f"APPROVE ERROR : {e}"
+        )
 
 
 # =========================
@@ -619,17 +572,15 @@ async def approve_handler(event):
 )
 async def reject_handler(event):
 
-    async with callback_semaphore:
+    uid = int(
+        event.data_match.group(1).decode()
+    )
 
-        uid = int(
-            event.data_match.group(1).decode()
-        )
+    await event.edit(
+        "❌ menfess rejected"
+    )
 
-        await event.edit(
-            "❌ menfess rejected"
-        )
-
-        await bot.send_message(
-            uid,
-            "❌ menfess kamu ditolak admin"
-        )
+    await bot.send_message(
+        uid,
+        "❌ menfess kamu ditolak admin"
+    )
