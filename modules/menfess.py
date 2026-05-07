@@ -1,5 +1,7 @@
 from telethon import events, Button
 from telethon.utils import get_display_name
+from telethon.tl.functions.channels import GetParticipantRequest
+from telethon.errors.rpcerrorlist import UserNotParticipantError
 
 from database import premium_db
 from config import ADMIN_GROUP, POST_CHANNEL
@@ -7,12 +9,98 @@ from __main__ import bot, is_owner
 
 import re
 import time
+import random
+import string
 
 from datetime import datetime, timedelta
 
 print("MENFESS MODULE LOADED")
 
 cooldown = {}
+menfess_mode = set()
+
+# =========================
+# ANONYMOUS SESSION
+# =========================
+
+reply_sessions = {}
+waiting_reply = {}
+
+# =========================
+# CHANNEL
+# =========================
+
+CHANNEL_1 = "usernamechannel1"
+CHANNEL_2 = None
+CHANNEL_3 = None
+
+# =========================
+# FORCE SUB
+# =========================
+
+async def check_join(user_id):
+
+    channels = []
+
+    if CHANNEL_1:
+        channels.append(CHANNEL_1.replace("@", ""))
+
+    if CHANNEL_2:
+        channels.append(CHANNEL_2.replace("@", ""))
+
+    if CHANNEL_3:
+        channels.append(CHANNEL_3.replace("@", ""))
+
+    # KALO GA ADA CHANNEL
+    if not channels:
+        return True
+
+    for channel in channels:
+
+        try:
+
+            await bot(
+                GetParticipantRequest(
+                    channel=channel,
+                    participant=user_id
+                )
+            )
+
+        except UserNotParticipantError:
+
+            return False
+
+        except Exception as e:
+
+            print(f"JOIN CHECK ERROR : {e}")
+
+            # BIAR GA FALSE TERUS
+            return True
+
+    return True
+
+
+# =========================
+# RANDOM CODE
+# =========================
+
+def generate_code():
+
+    while True:
+
+        code = "".join(
+
+            random.choice(
+                string.ascii_uppercase + string.digits
+            )
+
+            for _ in range(8)
+
+        )
+
+        if code not in reply_sessions:
+            return code
+
 
 # =========================
 # GET PREMIUM
@@ -264,6 +352,108 @@ async def unprem(event):
 
 
 # =========================
+# BUTTON MENFESS
+# =========================
+
+@bot.on(events.CallbackQuery(data=b"menfess"))
+async def menfess_button(event):
+
+    joined = await check_join(
+        event.sender_id
+    )
+
+    if not joined:
+
+        return await event.reply(
+
+            "❌ wajib join channel dulu",
+
+            buttons=[
+
+                [
+                    Button.url(
+                        "✨ JOIN CHANNEL ✨",
+                        f"https://t.me/{CHANNEL_1.replace('@', '')}"
+                    )
+                ]
+
+            ]
+
+        )
+
+    menfess_mode.add(
+        event.sender_id
+    )
+
+    await event.reply(
+        "💌 silahkan kirim menfess sekarang"
+    )
+
+
+# =========================
+# REPLY COMMAND
+# =========================
+
+@bot.on(events.NewMessage(pattern=r"/reply (.+)"))
+async def reply_command(event):
+
+    joined = await check_join(
+        event.sender_id
+    )
+
+    if not joined:
+
+        return await event.reply(
+
+            "❌ wajib join channel dulu",
+
+            buttons=[
+
+                [
+                    Button.url(
+                        "✨ JOIN CHANNEL ✨",
+                        f"https://t.me/{CHANNEL_1.replace('@', '')}"
+                    )
+                ]
+
+            ]
+
+        )
+
+    args = event.raw_text.split(
+        " ",
+        1
+    )
+
+    if len(args) < 2:
+
+        return await event.reply(
+            "❌ contoh : /reply ABC12345"
+        )
+
+    code = args[1].strip().upper()
+
+    if code not in reply_sessions:
+
+        return await event.reply(
+            "❌ kode anonymous tidak ditemukan"
+        )
+
+    target_id = reply_sessions[code]
+
+    waiting_reply[event.sender_id] = {
+
+        "target": target_id,
+        "code": code
+
+    }
+
+    await event.reply(
+        "✍️ sekarang kirim pesan anonymous kamu"
+    )
+
+
+# =========================
 # MENFESS
 # =========================
 
@@ -272,33 +462,97 @@ async def menfess_handler(event):
 
     try:
 
-        # PRIVATE ONLY
         if not event.is_private:
-            return
-
-        text = event.raw_text or ""
-
-        # SKIP COMMAND
-        if text.startswith("/"):
             return
 
         sender = await event.get_sender()
 
-        # SKIP BOT
         if getattr(sender, "bot", False):
             return
+
+        # =========================
+        # ANONYMOUS REPLY
+        # =========================
+
+        if event.sender_id in waiting_reply:
+
+            if event.raw_text.startswith("/"):
+                return
+
+            data = waiting_reply[event.sender_id]
+
+            target_id = data["target"]
+
+            try:
+
+                if event.media:
+
+                    await bot.send_file(
+
+                        target_id,
+
+                        file=event.media,
+
+                        caption=(
+                            "💌 anonymous reply\n\n"
+                            f"{event.raw_text or ''}"
+                        )
+
+                    )
+
+                else:
+
+                    await bot.send_message(
+
+                        target_id,
+
+                        (
+                            "💌 anonymous reply\n\n"
+                            f"{event.raw_text}"
+                        )
+
+                    )
+
+                del waiting_reply[event.sender_id]
+
+                return await event.reply(
+                    "✅ anonymous reply berhasil dikirim"
+                )
+
+            except Exception as e:
+
+                print(f"REPLY ERROR : {e}")
+
+                return await event.reply(
+                    "❌ gagal mengirim anonymous reply"
+                )
+
+        # =========================
+        # NORMAL MENFESS
+        # =========================
+
+        if event.sender_id not in menfess_mode:
+            return
+
+        text = event.raw_text or ""
+
+        if text.startswith("/"):
+            return
+
+        menfess_mode.discard(
+            event.sender_id
+        )
 
         premium = await get_premium(
             sender.id
         )
 
+        now = time.time()
+
         # =========================
         # COOLDOWN
         # =========================
 
-        now = time.time()
-
-        # PREMIUM
         if premium:
 
             if sender.id in cooldown:
@@ -306,11 +560,13 @@ async def menfess_handler(event):
                 delay = now - cooldown[sender.id]
 
                 if delay < 5:
-                    return
+
+                    return await event.reply(
+                        "❌ tunggu 5 detik"
+                    )
 
             cooldown[sender.id] = now
 
-        # FREE USER
         else:
 
             if sender.id in cooldown:
@@ -318,9 +574,20 @@ async def menfess_handler(event):
                 delay = now - cooldown[sender.id]
 
                 if delay < 15:
-                    return
+
+                    return await event.reply(
+                        "❌ tunggu 15 detik"
+                    )
 
             cooldown[sender.id] = now
+
+        # =========================
+        # GENERATE CODE
+        # =========================
+
+        reply_code = generate_code()
+
+        reply_sessions[reply_code] = sender.id
 
         # =========================
         # PREMIUM AUTO POST
@@ -328,7 +595,7 @@ async def menfess_handler(event):
 
         if premium:
 
-            limit = premium["limit"]
+            limit = premium.get("limit", 0)
 
             if limit <= 0:
 
@@ -336,44 +603,42 @@ async def menfess_handler(event):
                     "❌ limit premium kamu habis"
                 )
 
+            final_caption = (
+
+                f"{text}\n\n"
+                f"↩️ anonymous reply:\n"
+                f"`/reply {reply_code}`"
+
+            )
+
             try:
 
-                # MEDIA
                 if event.media:
 
                     await bot.send_file(
-
                         POST_CHANNEL,
-
-                        event.media,
-
-                        caption=text if text else None
-
+                        file=event.media,
+                        caption=final_caption
                     )
 
-                # TEXT
                 else:
 
                     await bot.send_message(
                         POST_CHANNEL,
-                        text
+                        final_caption
                     )
 
-                # KURANG LIMIT
                 if premium["tier"] != "pro":
 
                     await premium_db.update_one(
-
                         {
                             "user_id": sender.id
                         },
-
                         {
                             "$inc": {
                                 "limit": -1
                             }
                         }
-
                     )
 
                 return await event.reply(
@@ -382,12 +647,10 @@ async def menfess_handler(event):
 
             except Exception as e:
 
-                print(
-                    f"POST ERROR : {e}"
-                )
+                print(f"POST ERROR : {e}")
 
                 return await event.reply(
-                    "❌ gagal mengirim menfess"
+                    f"❌ gagal autopost\n\n{e}"
                 )
 
         # =========================
@@ -398,22 +661,18 @@ async def menfess_handler(event):
 
             admin_caption = (
 
-                "╭──〔 📥 MENFESS MASUK 〕──╮\n"
-                f"FROM : {get_display_name(sender)}\n"
-                f"USER ID : {sender.id}\n"
-                "╰────────────────────╯\n\n"
-                f"{text}"
+                f"{text}\n\n"
+                f"CODE : {reply_code}"
 
             )
 
-            # MEDIA
             if event.media:
 
                 await bot.send_file(
 
                     ADMIN_GROUP,
 
-                    event.media,
+                    file=event.media,
 
                     caption=admin_caption,
 
@@ -422,7 +681,7 @@ async def menfess_handler(event):
                         [
                             Button.inline(
                                 "✅ APPROVE",
-                                data=f"approve_{sender.id}"
+                                data=f"approve_{sender.id}_{reply_code}"
                             ),
 
                             Button.inline(
@@ -435,7 +694,6 @@ async def menfess_handler(event):
 
                 )
 
-            # TEXT
             else:
 
                 await bot.send_message(
@@ -449,7 +707,7 @@ async def menfess_handler(event):
                         [
                             Button.inline(
                                 "✅ APPROVE",
-                                data=f"approve_{sender.id}"
+                                data=f"approve_{sender.id}_{reply_code}"
                             ),
 
                             Button.inline(
@@ -468,15 +726,15 @@ async def menfess_handler(event):
 
         except Exception as e:
 
-            print(
-                f"ADMIN ERROR : {e}"
+            print(f"ADMIN ERROR : {e}")
+
+            await event.reply(
+                f"❌ gagal kirim admin\n\n{e}"
             )
 
     except Exception as e:
 
-        print(
-            f"MENFESS ERROR : {e}"
-        )
+        print(f"MENFESS ERROR : {e}")
 
 
 # =========================
@@ -484,15 +742,11 @@ async def menfess_handler(event):
 # =========================
 
 @bot.on(
-
     events.CallbackQuery(
-
         data=re.compile(
-            b"approve_(.*)"
+            b"approve_(.*)_(.*)"
         )
-
     )
-
 )
 async def approve_handler(event):
 
@@ -500,43 +754,40 @@ async def approve_handler(event):
         event.data_match.group(1).decode()
     )
 
+    code = event.data_match.group(2).decode()
+
     try:
 
         msg = await event.get_message()
 
         raw = msg.raw_text or ""
 
-        # AMBIL ISI MENFESS DOANG
-        if "\n\n" in raw:
+        menfess_text = raw.split(
+            "\n\nCODE :",
+            1
+        )[0]
 
-            menfess_text = raw.split(
-                "\n\n",
-                1
-            )[1]
+        final_caption = (
 
-        else:
+            f"{menfess_text}\n\n"
+            f"↩️ anonymous reply:\n"
+            f"`/reply {code}`"
 
-            menfess_text = raw
+        )
 
-        # MEDIA
         if msg.media:
 
             await bot.send_file(
-
                 POST_CHANNEL,
-
-                msg.media,
-
-                caption=menfess_text if menfess_text else None
-
+                file=msg.media,
+                caption=final_caption
             )
 
-        # TEXT
         else:
 
             await bot.send_message(
                 POST_CHANNEL,
-                menfess_text
+                final_caption
             )
 
         await event.edit(
@@ -550,9 +801,7 @@ async def approve_handler(event):
 
     except Exception as e:
 
-        print(
-            f"APPROVE ERROR : {e}"
-        )
+        print(f"APPROVE ERROR : {e}")
 
 
 # =========================
@@ -560,15 +809,11 @@ async def approve_handler(event):
 # =========================
 
 @bot.on(
-
     events.CallbackQuery(
-
         data=re.compile(
             b"reject_(.*)"
         )
-
     )
-
 )
 async def reject_handler(event):
 

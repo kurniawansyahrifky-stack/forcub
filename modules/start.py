@@ -61,7 +61,8 @@ def get_start_buttons():
 
     buttons.append(
         [
-            Button.inline("💎 PREMIUM", data=b"premium")
+            Button.inline("💎 PREMIUM", data=b"premium"),
+            Button.inline("💌 MENFESS", data=b"menfess")
         ]
     )
 

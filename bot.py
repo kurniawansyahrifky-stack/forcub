@@ -23,10 +23,6 @@ from telethon.tl.functions.channels import (
     GetParticipantRequest
 )
 
-from telethon.utils import (
-    get_display_name
-)
-
 from reset_daily import reset_limits
 
 
@@ -148,7 +144,8 @@ async def get_user_join(user_id):
             f"JOIN CHECK ERROR: {e}"
         )
 
-        return False
+        # BIAR GA FALSE TERUS PAS API ERROR
+        return True
 
 
 # =========================
@@ -189,6 +186,9 @@ async def welcome_handler(event):
     if event.user_joined or event.user_added:
 
         user = await event.get_user()
+
+        if getattr(user, "bot", False):
+            return
 
         joined = await get_user_join(
             user.id
@@ -252,20 +252,17 @@ async def mute_on_message(event):
 
     try:
 
+        user = await event.get_sender()
+
+        if getattr(user, "bot", False):
+            return
+
         joined = await get_user_join(
             event.sender_id
         )
 
+        # SUDAH JOIN
         if joined:
-            return
-
-        user = await event.get_sender()
-
-        # FIX ERROR CHANNEL BOT
-        if not hasattr(user, "bot"):
-            return
-
-        if user.bot:
             return
 
         await bot.edit_permissions(
@@ -449,6 +446,7 @@ import modules.start
 import modules.menfess
 import modules.owner
 import modules.upload
+
 
 # =========================
 # TASKS
