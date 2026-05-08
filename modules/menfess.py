@@ -3,9 +3,7 @@ from telethon.tl.functions.channels import GetParticipantRequest
 from telethon.errors.rpcerrorlist import UserNotParticipantError
 
 from database import premium_db
-
 from config import ADMIN_GROUP, POST_CHANNEL
-
 from __main__ import bot, is_owner
 
 import re
@@ -13,7 +11,6 @@ import time
 import random
 import string
 import asyncio
-import time
 from datetime import datetime, timedelta
 
 print("MENFESS MODULE LOADED")
@@ -21,26 +18,6 @@ print("MENFESS MODULE LOADED")
 cooldown = {}
 menfess_mode = set()
 reply_sessions = {}
-
-async def cleanup_reply():
-
-    while True:
-
-        now = time.time()
-
-        expired = []
-
-        for code, data in reply_sessions.items():
-
-            if now - data["time"] > 86400:
-                expired.append(code)
-
-        for code in expired:
-            del reply_sessions[code]
-
-        await asyncio.sleep(3600)
-
-bot.loop.create_task(cleanup_reply())
 # =========================
 # CHANNEL
 # =========================
@@ -90,27 +67,6 @@ async def check_join(user_id):
             return True
 
     return True
-
-# =========================
-# RANDOM CODE
-# =========================
-
-def generate_code():
-
-    while True:
-
-        code = "".join(
-
-            random.choice(
-                string.ascii_uppercase + string.digits
-            )
-
-            for _ in range(8)
-
-        )
-
-        if code not in reply_sessions:
-            return code
 
 # =========================
 # GET PREMIUM
@@ -458,23 +414,6 @@ async def menfess_handler(event):
             cooldown[sender.id] = now
 
         # =========================
-        # GENERATE CODE
-        # =========================
-
-        reply_code = generate_code()
-
-        reply_sessions[reply_code] = {
-            "user_id": sender.id,
-            "time": time.time()
-        }
-
-        final_caption = (
-            f"{text}\n\n"
-            f"↩️ reply code:\n"
-            f"`/reply {reply_code}`"
-        )
-
-        # =========================
         # PREMIUM AUTO POST
         # =========================
 
@@ -495,14 +434,14 @@ async def menfess_handler(event):
                     await bot.send_file(
                         POST_CHANNEL,
                         file=event.media,
-                        caption=final_caption
+                        caption=text if text else None
                     )
 
                 else:
 
                     await bot.send_message(
                         POST_CHANNEL,
-                        final_caption
+                        text
                     )
 
                 if premium["tier"] != "pro":
@@ -536,11 +475,6 @@ async def menfess_handler(event):
 
         try:
 
-            admin_caption = (
-                f"{text}\n\n"
-                f"CODE : {reply_code}"
-            )
-
             if event.media:
 
                 await bot.send_file(
@@ -549,14 +483,14 @@ async def menfess_handler(event):
 
                     file=event.media,
 
-                    caption=admin_caption,
+                    caption=text if text else "Menfess Media",
 
                     buttons=[
 
                         [
                             Button.inline(
                                 "✅ APPROVE",
-                                data=f"approve_{sender.id}_{reply_code}"
+                                data=f"approve_{sender.id}"
                             ),
 
                             Button.inline(
@@ -575,14 +509,14 @@ async def menfess_handler(event):
 
                     ADMIN_GROUP,
 
-                    admin_caption,
+                    text,
 
                     buttons=[
 
                         [
                             Button.inline(
                                 "✅ APPROVE",
-                                data=f"approve_{sender.id}_{reply_code}"
+                                data=f"approve_{sender.id}"
                             ),
 
                             Button.inline(
@@ -618,7 +552,7 @@ async def menfess_handler(event):
 @bot.on(
     events.CallbackQuery(
         data=re.compile(
-            b"approve_(.*)_(.*)"
+            b"approve_(.*)"
         )
     )
 )
@@ -628,38 +562,25 @@ async def approve_handler(event):
         event.data_match.group(1).decode()
     )
 
-    code = event.data_match.group(2).decode()
-
     try:
 
         msg = await event.get_message()
 
         raw = msg.raw_text or ""
 
-        menfess_text = raw.split(
-            "\n\nCODE :",
-            1
-        )[0]
-
-        final_caption = (
-            f"{menfess_text}\n\n"
-            f"↩️ reply code:\n"
-            f"`/reply {code}`"
-        )
-
         if msg.media:
 
             await bot.send_file(
                 POST_CHANNEL,
                 file=msg.media,
-                caption=final_caption
+                caption=raw if raw != "Menfess Media" else None
             )
 
         else:
 
             await bot.send_message(
                 POST_CHANNEL,
-                final_caption
+                raw
             )
 
         await event.edit(

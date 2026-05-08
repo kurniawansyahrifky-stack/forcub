@@ -145,7 +145,7 @@ async def start_handler(event):
     )
 
 # ========================
-# ANONYMOUS HELP
+# ANONYMOUS MENU
 # ========================
 
 @bot.on(events.CallbackQuery(data=b"anonymous_help"))
@@ -153,12 +153,113 @@ async def anonymous_help(event):
 
     text = (
 
-        "╭━〔 📨 ANONYMOUS REPLY 〕━╮\n"
+        "╭━〔 📨 ANONYMOUS MENU 〕━╮\n"
         "┃\n"
-        "┃  cara balas menfess:\n"
+        "┃  fitur anonymous:\n"
         "┃\n"
-        "┃  1. cari kode reply\n"
-        "┃     di postingan channel\n"
+        "┃  ✦ anonymous posting\n"
+        "┃  ✦ anonymous reply\n"
+        "┃  ✦ anonymous chat\n"
+        "┃\n"
+        "┃  pilih menu dibawah\n"
+        "┃  untuk melanjutkan ✨\n"
+        "┃\n"
+        "╰━━━━━━━━━━━━━━━━━━╯"
+
+    )
+
+    buttons = [
+
+        [
+            Button.inline(
+                "📝 POSTING",
+                data=b"anon_post"
+            ),
+
+            Button.inline(
+                "💬 REPLY",
+                data=b"anon_reply"
+            )
+        ],
+
+        [
+            Button.inline(
+                "⬅️ KEMBALI",
+                data=b"back_start"
+            )
+        ]
+
+    ]
+
+    await event.edit(
+        text,
+        buttons=buttons
+    )
+
+# ========================
+# ANON POST
+# ========================
+
+@bot.on(events.CallbackQuery(data=b"anon_post"))
+async def anon_post(event):
+
+    text = (
+
+        "╭━〔 📝 ANONYMOUS POST 〕━╮\n"
+        "┃\n"
+        "┃  cara posting anonymous:\n"
+        "┃\n"
+        "┃  1. klik tombol mulai\n"
+        "┃\n"
+        "┃  2. kirim pesan / foto\n"
+        "┃     / video yang ingin\n"
+        "┃     diposting\n"
+        "┃\n"
+        "┃  3. bot akan memproses\n"
+        "┃     postingan kamu ✨\n"
+        "┃\n"
+        "╰━━━━━━━━━━━━━━━━━━╯"
+
+    )
+
+    buttons = [
+
+        [
+            Button.inline(
+                "💌 MULAI POSTING",
+                data=b"menfess"
+            )
+        ],
+
+        [
+            Button.inline(
+                "⬅️ KEMBALI",
+                data=b"anonymous_help"
+            )
+        ]
+
+    ]
+
+    await event.edit(
+        text,
+        buttons=buttons
+    )
+
+# ========================
+# ANON REPLY
+# ========================
+
+@bot.on(events.CallbackQuery(data=b"anon_reply"))
+async def anon_reply(event):
+
+    text = (
+
+        "╭━〔 💬 ANONYMOUS REPLY 〕━╮\n"
+        "┃\n"
+        "┃  cara reply anonymous:\n"
+        "┃\n"
+        "┃  1. salin kode reply\n"
+        "┃     atau link postingan\n"
         "┃\n"
         "┃  2. kirim command:\n"
         "┃     /reply KODE\n"
@@ -167,24 +268,57 @@ async def anonymous_help(event):
         "┃  /reply ABC12345\n"
         "┃\n"
         "┃  3. lalu kirim pesan\n"
-        "┃  anonymous kamu ✨\n"
+        "┃     anonymous kamu ✨\n"
         "┃\n"
         "╰━━━━━━━━━━━━━━━━━━╯"
 
     )
 
     buttons = [
+
+        [
+            Button.inline(
+                "💬 MULAI REPLY",
+                data=b"reply_help"
+            )
+        ],
+
         [
             Button.inline(
                 "⬅️ KEMBALI",
-                data=b"back_start"
+                data=b"anonymous_help"
             )
         ]
+
     ]
 
     await event.edit(
         text,
         buttons=buttons
+    )
+
+# ========================
+# REPLY HELP
+# ========================
+
+@bot.on(events.CallbackQuery(data=b"reply_help"))
+async def reply_help(event):
+
+    await bot.send_message(
+
+        event.sender_id,
+
+        (
+            "💬 silahkan kirim command:\n\n"
+            "/reply KODE\n\n"
+            "contoh:\n"
+            "/reply ABC12345"
+        )
+
+    )
+
+    await event.answer(
+        "cek private chat"
     )
 
 # ========================
